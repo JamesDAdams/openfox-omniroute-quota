@@ -1,0 +1,29 @@
+{
+  "name": "openfox-omniroute-quota",
+  "version": "1.0.0",
+  "description": "OmniRoute quota provider plugin for OpenFox",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": ["dist", "README.md", "LICENSE"],
+  "openfox": {
+    "apiVersion": 1,
+    "plugin": "./dist/index.js",
+    "hasSettings": true
+  },
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --config vitest.config.ts"
+  },
+  "peerDependencies": {
+    "openfox": ">=2.0.56 <3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.15",
+    "typescript": "^5.7.3",
+    "tsup": "^8.4.0",
+    "vitest": "^4.1.2"
+  },
+  "license": "MIT"
+}

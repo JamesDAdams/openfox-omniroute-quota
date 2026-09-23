@@ -1,28 +1,48 @@
 {
   "name": "openfox-omniroute-quota",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "OmniRoute quota provider plugin for OpenFox",
-  "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "files": ["dist", "README.md", "LICENSE"],
-  "openfox": {
-    "apiVersion": 1,
-    "plugin": "./dist/index.js",
-    "hasSettings": true
-  },
+  "type": "module",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "build": "tsup",
-    "typecheck": "tsc --noEmit",
-    "test": "vitest run --config vitest.config.ts"
+    "test": "vitest run --passWithNoTests --config vitest.config.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "openfox": {
+    "apiVersion": 2,
+    "displayName": "OmniRoute Quota",
+    "description": "Reports OmniRoute usage and quotas to OpenFox via the quota plugin.",
+    "icon": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"#8B5CF6\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"12\" r=\"10\"/><polygon points=\"16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76\"/></svg>",
+    "entry": "./dist/index.js",
+    "capabilities": [
+      "settings",
+      "ui",
+      "rpc",
+      "tools",
+      "hooks"
+    ],
+    "timeoutMs": 15000
   },
   "peerDependencies": {
-    "openfox": ">=2.0.56 <3"
+    "openfox": ">=2.0.140",
+    "openfox-quota": "^1.0.0 || ^2.0.0"
+  },
+  "peerDependenciesMeta": {
+    "openfox-quota": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@types/node": "^22.19.15",
-    "typescript": "^5.7.3",
     "tsup": "^8.4.0",
+    "typescript": "^5.7.3",
     "vitest": "^4.1.2"
   },
   "license": "MIT"

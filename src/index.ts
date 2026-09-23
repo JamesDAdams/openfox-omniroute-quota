@@ -1,61 +1,98 @@
-import { join } from 'node:path'
-import type { ProviderPluginRegistry } from 'openfox/provider'
+import type { PluginRegistry } from './quota/contract.js'
 import { OmniRouteQuotaManager } from './quota/omniroute.js'
-import { PluginSettingsStore } from './settings.js'
-import './quota/contract.js'
+import { SETTINGS_SCHEMA } from './settings.js'
 
-export async function register(registry: ProviderPluginRegistry): Promise<void> {
-  const storageDir = join(
-    registry.runtime.configDirectory,
-    'plugins',
-    'openfox-omniroute-quota',
-  )
-  const settingsStore = new PluginSettingsStore(join(storageDir, 'settings.json'))
-  const initialSettings = await settingsStore.load()
+export async function register(registry: PluginRegistry): Promise<void> {
+  const { context } = registry
 
   const manager = new OmniRouteQuotaManager({
-    baseUrl: initialSettings.baseUrl,
-    apiKey: initialSettings.apiKey,
+    context,
   })
 
+  // 1. Register OpenFox v2 Declarative Settings Schema
   if (typeof registry.registerSettings === 'function') {
-    registry.registerSettings({
-      title: 'OmniRoute Quota Configuration',
-      description: 'Configure your OmniRoute server URL and API key to surface your quotas in OpenFox.',
-      fields: [
-        {
-          key: 'baseUrl',
-          label: 'OmniRoute Server URL',
-          type: 'text',
-          placeholder: 'http://localhost:20128',
-          defaultValue: 'http://localhost:20128',
-          required: true,
+    registry.registerSettings(SETTINGS_SCHEMA)
+  }
+
+  // 2. Register Quota Providers with openfox-quota plugin (via registry and global manager)
+  await manager.registerProviders(registry)
+  context?.logger?.info?.('Registered OmniRoute quota providers')
+
+  // 3. Register RPC Methods for manual sync and data retrieval
+  if (typeof registry.registerRpc === 'function') {
+    registry.registerRpc('omniroute.getQuota', async (params) => {
+      const connectionId = typeof params?.['connectionId'] === 'string' ? params['connectionId'] : undefined
+      if (connectionId) {
+        const source = await manager.getQuotaForConnection(connectionId, connectionId)
+        return { source }
+      }
+      const sources = await manager.getAllQuotaSources()
+      return { sources }
+    })
+
+    registry.registerRpc('omniroute.syncQuota', async () => {
+      return await manager.syncQuota(registry)
+    })
+  }
+
+  // 4. Register LLM Tool
+  if (typeof registry.registerTool === 'function') {
+    registry.registerTool({
+      name: 'get_omniroute_quota',
+      description: 'Retrieve current model quota limits and usage across OmniRoute providers and connections.',
+      parameters: {
+        type: 'object',
+        properties: {
+          connectionId: {
+            type: 'string',
+            description: 'Optional connection ID or provider slug filter',
+          },
         },
-        {
-          key: 'apiKey',
-          label: 'OmniRoute API Key',
-          type: 'text',
-          placeholder: 'sk-...',
-          required: true,
-        },
-      ],
-      async getSettings() {
-        return settingsStore.load() as unknown as Record<string, unknown>
       },
-      async saveSettings(values: Record<string, unknown>) {
-        const updated = await settingsStore.save(values)
-        manager.updateConfig(updated)
+      execute: async (args) => {
+        const connectionId = typeof args['connectionId'] === 'string' ? args['connectionId'] : undefined
+        if (connectionId) {
+          const source = await manager.getQuotaForConnection(connectionId, connectionId)
+          return {
+            success: true,
+            output: JSON.stringify(source, null, 2),
+          }
+        }
+        const sources = await manager.getAllQuotaSources()
+        return {
+          success: true,
+          output: JSON.stringify({ sources }, null, 2),
+        }
       },
     })
   }
 
-  if (typeof registry.registerQuotaProvider === 'function') {
-    await manager.registerProviders(registry)
+  // 5. Register Hook on turn.completed to ensure fresh stats
+  if (typeof registry.registerHook === 'function') {
+    registry.registerHook('turn.completed', async () => {
+      try {
+        await manager.syncQuota(registry)
+      } catch (err) {
+        context?.logger?.debug?.('Failed to sync OmniRoute quota on turn completion', {
+          error: err instanceof Error ? err.message : String(err),
+        })
+      }
+    })
   }
+
+  context?.logger?.info?.('openfox-omniroute-quota plugin initialized successfully')
 }
 
 export {
   OmniRouteQuotaManager,
+  OmniRouteDynamicQuotaProvider,
   OmniRouteSectionQuotaProvider,
 } from './quota/omniroute.js'
-export { PluginSettingsStore } from './settings.js'
+export {
+  getOmniRouteSettings,
+  normalizeBaseUrl,
+  SETTINGS_SCHEMA,
+  DEFAULT_SETTINGS,
+  type OmniRoutePluginSettings,
+} from './settings.js'
+export type * from './quota/contract.js'

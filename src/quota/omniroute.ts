@@ -509,9 +509,9 @@ export class OmniRouteQuotaManager {
     this.cachedAt = 0
     const sources = await this.getAllQuotaSources()
 
-    // Push sources into global quota manager
+    // Push sources into global quota manager directly into pushedSources to avoid recursive refresh calls
     const globalMgr = (globalThis as any)[GLOBAL_QUOTA_KEY]
-    if (globalMgr && typeof globalMgr.submitSource === 'function') {
+    if (globalMgr) {
       if (typeof globalMgr.clearPushedSources === 'function') {
         globalMgr.clearPushedSources((id: string) => id.startsWith('omniroute'))
       } else if (globalMgr.pushedSources instanceof Map) {
@@ -521,9 +521,11 @@ export class OmniRouteQuotaManager {
           }
         }
       }
-      for (const src of sources) {
-        if (src.metrics && src.metrics.length > 0) {
-          globalMgr.submitSource(src)
+      if (globalMgr.pushedSources instanceof Map) {
+        for (const src of sources) {
+          if (src.metrics && src.metrics.length > 0) {
+            globalMgr.pushedSources.set(src.id, src)
+          }
         }
       }
     }
@@ -546,8 +548,8 @@ export class OmniRouteDynamicQuotaProvider implements QuotaProvider {
     const sources = await this.manager.getAllQuotaSources()
 
     const globalMgr = (globalThis as any)[GLOBAL_QUOTA_KEY]
-    // Push all connection sources to quota manager so each appears in modal
-    if (globalMgr && typeof globalMgr.submitSource === 'function') {
+    // Push all connection sources to quota manager directly into pushedSources so each appears in modal without recursion
+    if (globalMgr) {
       if (typeof globalMgr.clearPushedSources === 'function') {
         globalMgr.clearPushedSources((id: string) => id.startsWith('omniroute'))
       } else if (globalMgr.pushedSources instanceof Map) {
@@ -557,9 +559,11 @@ export class OmniRouteDynamicQuotaProvider implements QuotaProvider {
           }
         }
       }
-      for (const src of sources) {
-        if (src.metrics && src.metrics.length > 0) {
-          globalMgr.submitSource(src)
+      if (globalMgr.pushedSources instanceof Map) {
+        for (const src of sources) {
+          if (src.metrics && src.metrics.length > 0) {
+            globalMgr.pushedSources.set(src.id, src)
+          }
         }
       }
     }
